@@ -1,0 +1,22 @@
+<!-- app/templates/login_step1.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inicio de Sesión - Paso 1</title>
+</head>
+<body>
+    <h2>Iniciar Sesión - Paso 1</h2>
+    <form method="POST" action="{{ url_for('main.login_step1') }}">
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.username.label }}<br>
+            {{ form.username(size=32) }}<br>
+            {% for error in form.username.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+    <p>¿No tienes una cuenta? <a href="{{ url_for('main.register') }}">Registrarte</a></p>
+</body>
+</html>

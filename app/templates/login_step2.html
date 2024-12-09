@@ -1,0 +1,69 @@
+<!-- app/templates/login_step2.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inicio de Sesión - Paso 2</title>
+</head>
+<body>
+    <h2>Iniciar Sesión - Paso 2</h2>
+    <p>Desafío generado: <strong>{{ c }}</strong></p>
+    <form method="POST" action="{{ url_for('main.login_step2') }}">
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.s.label }}<br>
+            {{ form.s(size=64) }}<br>
+            {% for error in form.s.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+
+    <h3>Generar Prueba (s)</h3>
+    <p>Ingresa tu contraseña para generar la prueba.</p>
+    <input type="password" id="client_secret_input" placeholder="Contraseña" required><br><br>
+    <button type="button" onclick="generateProof()">Generar y Completar Prueba</button>
+
+    <script>
+        // Parámetros públicos
+        const N = BigInt("{{ N }}");  // Convertir a BigInt en JavaScript
+        const G = BigInt("{{ G }}");
+
+        // Función para hash SHA-256
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return BigInt("0x" + hashHex);
+        }
+
+        // Función para generar la prueba s
+        async function generateProof() {
+            const password = document.getElementById('client_secret_input').value;
+            if (!password) {
+                alert("Por favor, ingresa tu contraseña.");
+                return;
+            }
+
+            // Derivar x a partir de la contraseña
+            const x = await sha256(password);
+
+            // Obtener el desafío c desde el servidor
+            const c = {{ c }};
+
+            // Generar r aleatorio (simulación)
+            // En una implementación real, r debería ser un valor aleatorio seguro
+            const r = BigInt(Math.floor(Math.random() * Number(N)));
+
+            // Calcular s = r + c * x mod (N - 1)
+            const s = (r + BigInt(c) * x) % (N - 1n);
+
+            // Asignar s al campo de prueba
+            document.getElementById('{{ form.s.id }}').value = s.toString();
+
+            alert("Prueba generada y completada en el formulario.");
+        }
+    </script>
+</body>
+</html>
