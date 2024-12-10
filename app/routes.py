@@ -1,10 +1,9 @@
-# app/routes.py
-from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, session
 from .forms import RegistrationForm, LoginStep1Form, LoginStep2Form
 from .gq_protocol import (
     hash_password,
     compute_public_key,
-    compute_proof,
+    compute_commitment,
     verify_proof,
     N,
     G
@@ -14,11 +13,9 @@ import json
 
 main = Blueprint('main', __name__)
 
-# Ruta al archivo JSON que almacena los usuarios
 USERS_FILE = os.path.join(os.path.dirname(__file__), 'users.json')
 
 def load_users():
-    """Carga los usuarios desde el archivo JSON."""
     if not os.path.exists(USERS_FILE):
         return {}
     with open(USERS_FILE, 'r') as f:
@@ -28,7 +25,6 @@ def load_users():
             return {}
 
 def save_users(users):
-    """Guarda los usuarios en el archivo JSON."""
     with open(USERS_FILE, 'w') as f:
         json.dump(users, f, indent=4)
 
@@ -48,19 +44,15 @@ def register():
         if username in users:
             return "Usuario ya existe", 400
 
-        # Derivar el secreto x a partir de la contraseña
-        x = hash_password(password)
+        # Calcular w desde la contraseña
+        w = hash_password(password)
+        # Calcular y = g^w mod N
+        y = compute_public_key(w)
 
-        # Computar la clave pública y
-        y = compute_public_key(x)
-
-        # Almacenar en la "base de datos"
         users[username] = {
-            'y': y  # Clave pública del usuario
+            'y': y
         }
-
         save_users(users)
-
         return redirect(url_for('main.login_step1'))
     return render_template('register.html', form=form)
 
@@ -69,15 +61,18 @@ def login_step1():
     form = LoginStep1Form()
     if form.validate_on_submit():
         username = form.username.data
-
         users = load_users()
         user = users.get(username)
         if not user:
             return "Usuario no encontrado", 400
 
-        # Generar un desafío c (0 o 1)
+        # Generar c (0 o 1) y el compromiso t, u
         c = int.from_bytes(os.urandom(1), 'big') % 2
+        t, u = compute_commitment()
+
         session['c'] = c
+        session['t'] = t
+        session['u'] = u
         session['username'] = username
 
         return redirect(url_for('main.login_step2'))
@@ -86,10 +81,12 @@ def login_step1():
 @main.route('/login_step2', methods=['GET', 'POST'])
 def login_step2():
     form = LoginStep2Form()
-    if 'c' not in session or 'username' not in session:
+    if 'c' not in session or 'username' not in session or 't' not in session or 'u' not in session:
         return redirect(url_for('main.login_step1'))
 
     c = session['c']
+    t = session['t']
+    u = session['u']
     username = session['username']
 
     users = load_users()
@@ -105,14 +102,15 @@ def login_step2():
         except ValueError:
             return "Prueba inválida", 400
 
-        # Verificar la prueba
-        if verify_proof(s, y, c):
+        # Verificación del protocolo
+        if verify_proof(u=u, s=s, y=y, c=c):
             session['authenticated'] = True
             return redirect(url_for('main.dashboard'))
         else:
             return "Inicio de sesión fallido", 400
 
-    return render_template('login_step2.html', form=form, c=c)
+    # Pasar N, G, c, t al template para que el cliente calcule s = t + c*w
+    return render_template('login_step2.html', form=form, c=c, t=t, N=N, G=G)
 
 @main.route('/dashboard')
 def dashboard():

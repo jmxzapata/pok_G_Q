@@ -1,33 +1,37 @@
-# app/gq_protocol.py
 import hashlib
 import os
 
-# Parámetros públicos del protocolo GQ
-# Para propósitos de demostración, utilizamos valores pequeños.
-N = 162259276829213363391578010288127  # Un número primo grande
-G = 5  # Generador
+# Parámetros públicos del protocolo GQ (N, G)
+N = 162259276829213363391578010288127
+G = 5
 
 def hash_password(password):
     """
-    Hash de la contraseña usando SHA-256 para derivar el secreto x.
+    Hash de la contraseña usando SHA-256 para derivar el secreto w.
+    password.strip() para evitar espacios o saltos de línea extra.
     """
+    password = password.strip()
     return int(hashlib.sha256(password.encode()).hexdigest(), 16)
 
-def compute_public_key(x):
+def compute_public_key(w):
     """
-    Computa la clave pública y = g^x mod n.
+    y = g^w mod N
     """
-    return pow(G, x, N)
+    return pow(G, w, N)
 
-def compute_proof(r, c, x):
+def compute_commitment():
     """
-    Computa la prueba s = r + c * x mod (n-1).
+    Genera t aleatorio y u = g^t mod N
     """
-    return (r + c * x) % (N - 1)
+    t = int.from_bytes(os.urandom(16), 'big') % N
+    u = pow(G, t, N)
+    return t, u
 
 def verify_proof(u, s, y, c):
     """
-    Verifica si g^s mod n == u * y^c mod n.
+    Verifica si g^s mod N == u * y^c mod N.
+    Con s = t + c*w se cumple:
+    g^(t+c*w) = g^t * g^(c*w) = u * (g^w)^c = u * y^c mod N
     """
     lhs = pow(G, s, N)
     rhs = (u * pow(y, c, N)) % N

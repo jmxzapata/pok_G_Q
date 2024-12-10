@@ -1,4 +1,3 @@
-<!-- app/templates/login_step2.html -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,7 +5,6 @@
 </head>
 <body>
     <h2>Iniciar Sesión - Paso 2</h2>
-    <p>Desafío generado: <strong>{{ c }}</strong></p>
     <form method="POST" action="{{ url_for('main.login_step2') }}">
         {{ form.hidden_tag() }}
         <p>
@@ -20,16 +18,16 @@
     </form>
 
     <h3>Generar Prueba (s)</h3>
-    <p>Ingresa tu contraseña para generar la prueba.</p>
-    <input type="password" id="client_secret_input" placeholder="Contraseña" required><br><br>
+    <p>Ingresa la misma contraseña con la que te registraste para generar la prueba:</p>
+    <input type="password" id="client_secret_input" placeholder="Contraseña" />
     <button type="button" onclick="generateProof()">Generar y Completar Prueba</button>
 
     <script>
-        // Parámetros públicos
-        const N = BigInt("{{ N }}");  // Convertir a BigInt en JavaScript
+        const N = BigInt("{{ N }}");
         const G = BigInt("{{ G }}");
+        const c = BigInt("{{ c }}");
+        const t = BigInt("{{ t }}");
 
-        // Función para hash SHA-256
         async function sha256(message) {
             const msgBuffer = new TextEncoder().encode(message);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -38,31 +36,23 @@
             return BigInt("0x" + hashHex);
         }
 
-        // Función para generar la prueba s
         async function generateProof() {
-            const password = document.getElementById('client_secret_input').value;
+            const password = document.getElementById('client_secret_input').value.trim();
             if (!password) {
                 alert("Por favor, ingresa tu contraseña.");
                 return;
             }
 
-            // Derivar x a partir de la contraseña
+            // Calcular w = hash(password)
             const x = await sha256(password);
 
-            // Obtener el desafío c desde el servidor
-            const c = {{ c }};
+            // Calcular s = t + c*w (sin modulo)
+            const s = t + c * x;
 
-            // Generar r aleatorio (simulación)
-            // En una implementación real, r debería ser un valor aleatorio seguro
-            const r = BigInt(Math.floor(Math.random() * Number(N)));
-
-            // Calcular s = r + c * x mod (N - 1)
-            const s = (r + BigInt(c) * x) % (N - 1n);
-
-            // Asignar s al campo de prueba
+            // Asignar s al campo del formulario
             document.getElementById('{{ form.s.id }}').value = s.toString();
 
-            alert("Prueba generada y completada en el formulario.");
+            alert("Prueba generada. Ahora haz clic en 'Verificar' para completar el inicio de sesión.");
         }
     </script>
 </body>
